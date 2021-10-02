@@ -9,6 +9,8 @@ const service = {
     {
         try{
             //to get the authorrized user posts only
+            //for find only we have to use toArray(),because from db we dont get it as array of objects that why,
+            //for findOne no need to use toArray() method
             const data  =  await db.posts.find({userId:req.user.userId}).toArray();
             console.log(data);
             res.send(data);
@@ -58,6 +60,7 @@ const service = {
     
             console.log(req.params);
             //update post validation
+            //in mongodb _id is objectId but we get req.params.id as string so we have to search it as _id:ObjectId(req.params.id) in update 
             const post = await db.posts.findOne({_id:ObjectId(req.params.id) , userId:req.user.userId});
             if(!post)
             {

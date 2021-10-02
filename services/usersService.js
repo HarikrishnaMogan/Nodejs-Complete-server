@@ -1,8 +1,9 @@
 const db = require("../shared/mongo");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");//npm install bcrypt
+const jwt = require("jsonwebtoken");//npm install jsonwebtoken
 const {registerSchema,loginSchema} = require("../shared/schema");
 const { ObjectId } = require("mongodb");
+const sendemail = require("./sendmail");
 
 const service ={
 
@@ -10,10 +11,12 @@ const service ={
     {
        try{
            //req body validation or form validation
+           //joi gives two things error and value , value contains req.body
            const {error,value} = await registerSchema.validate(req.body);
            if(error)
            {
                return res.status(401).send({error:error.details[0].message});
+              // from error, it is a array with single object,it contains message property, if you have doubt console and see error
            }
            
            //check user exists
@@ -24,6 +27,7 @@ const service ={
           }
           
           //use bcrypt to encrypt password and insert it in database for security purpose
+          //genSalt(10) represents it will encrypt 10 times
           const salt = await bcrypt.genSalt(10);
           req.body.password = await bcrypt.hash(req.body.password,salt);
           console.log(req.body.password);
@@ -31,9 +35,15 @@ const service ={
 
           //email verification
           req.body.isVerified = false;
+          
+         
 
           //insert user
-          await db.users.insertOne(req.body);
+          let {insertedId} = await db.users.insertOne(req.body);
+
+           //send verify link to user via email
+            sendemail(req.body.email,insertedId);
+
           res.send("user registered sucessfully");
        }
        catch(err)
@@ -59,7 +69,7 @@ const service ={
              {
                  return res.status(401).send({error:"user doesn't exists"});
              }
-
+              
              //check password of user is correct or not
              const isValid = await bcrypt.compare(req.body.password,user.password);
              console.log(isValid);
@@ -68,8 +78,18 @@ const service ={
                  return res.status(403).send({error:"Email or password is wrong"});
              }
              
+             //check email/user verified or not
+             if(!user.isVerified)
+             {
+                 return res.status(401).send({error:"Email is not Verified"});
+             }
+
              //creating auth-token for user to access posts 
-             const authToken =  jwt.sign({userId:user._id, email:user.email},process.env.JWT_SECRET);//"naruto437"
+             const authToken =  jwt.sign(
+                 {userId:user._id, email:user.email},
+                 process.env.JWT_SECRET,//"naruto437"
+                 {expiresIn:"8h"}//token is valid upto 8h
+                 );
              console.log(authToken);
 
              res.send({authToken});
@@ -92,12 +112,14 @@ const service ={
                return res.status(401).send({error:"user dosent exists"});
             }
 
-            //update Isverified to true in database
-           /* await db.users.updateOne(
-                {_id:ObjectId()}
-                
-                )*/
-
+            //update Isverified to true in database to verify user
+            await db.users.updateOne(
+                {_id:ObjectId(req.params.id)},
+                {$set:{isVerified:true}}
+            );
+            
+            res.send({message:"Eamail verified successfully"})
+           
         }
         catch(err)
         {
