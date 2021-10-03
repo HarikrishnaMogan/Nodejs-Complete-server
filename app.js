@@ -47,7 +47,7 @@ const app = express();
      
        
         
-        app.listen(process.env.PORT,()=>{console.log(`starting server at ${process.env.PORT}`);})
+        app.listen(process.env.PORT || 8080,()=>{console.log(`starting server at ${process.env.PORT}`);})
         
     }
     catch(err)
